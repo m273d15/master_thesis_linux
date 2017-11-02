@@ -1,0 +1,3 @@
+worker=16
+
+make -j"$worker" bzImage
