@@ -6185,7 +6185,7 @@ pick_next_task_fair(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 	struct sched_entity *se;
 	struct task_struct *p;
 	int new_tasks;
-
+//	printk(KERN_DEBUG "> Using CFS\n");
 again:
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	if (!cfs_rq->nr_running)
@@ -8951,6 +8951,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 {
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &curr->se;
+	//printk(KERN_DEBUG "CURR: %u\n", curr->pid);
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
