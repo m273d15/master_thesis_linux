@@ -70,6 +70,8 @@ static inline void cpu_load_update_active(struct rq *this_rq) { }
  */
 #define NS_TO_JIFFIES(TIME)	((unsigned long)(TIME) / (NSEC_PER_SEC / HZ))
 
+
+#define PB_PLAN_LENGTH 4
 /*
  * Increase resolution of nice-level calculations for 64-bit architectures.
  * The extra resolution improves shares distribution and load balancing of
@@ -506,6 +508,20 @@ static inline int rt_bandwidth_enabled(void)
 # define HAVE_RT_PUSH_IPI
 #endif
 
+struct plan_entry {
+	long exec_t;
+	long idle_t;
+};
+
+struct pb_rq {
+	struct plan_entry plan[PB_PLAN_LENGTH];
+	unsigned int current_entry;
+	struct task_struct *loop_task;
+	// should be idle_t + current time
+	long idle_until;
+	long exec_until;
+};
+
 /* Real-Time classes' related field in a runqueue: */
 struct rt_rq {
 	struct rt_prio_array active;
@@ -698,6 +714,7 @@ struct rq {
 	struct cfs_rq cfs;
 	struct rt_rq rt;
 	struct dl_rq dl;
+	struct pb_rq pb;
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */
@@ -1472,7 +1489,7 @@ static inline void set_curr_task(struct rq *rq, struct task_struct *curr)
 #ifdef CONFIG_SMP
 #define sched_class_highest (&stop_sched_class)
 #else
-#define sched_class_highest (&dl_sched_class)
+#define sched_class_highest (&pb_sched_class)
 #endif
 #define for_each_class(class) \
    for (class = sched_class_highest; class; class = class->next)
@@ -1480,6 +1497,7 @@ static inline void set_curr_task(struct rq *rq, struct task_struct *curr)
 extern const struct sched_class stop_sched_class;
 extern const struct sched_class dl_sched_class;
 extern const struct sched_class rt_sched_class;
+extern const struct sched_class pb_sched_class;
 extern const struct sched_class fair_sched_class;
 extern const struct sched_class idle_sched_class;
 
@@ -1966,6 +1984,7 @@ print_numa_stats(struct seq_file *m, int node, unsigned long tsf,
 
 extern void init_cfs_rq(struct cfs_rq *cfs_rq);
 extern void init_rt_rq(struct rt_rq *rt_rq);
+extern void init_pb_rq(struct pb_rq *pb_rq);
 extern void init_dl_rq(struct dl_rq *dl_rq);
 
 extern void cfs_bandwidth_usage_inc(void);
