@@ -14,5 +14,8 @@ sudo mount -o loop $image_path $mount_path
 
 sudo cp $dir/inject_mod/pb_task_inject.ko $mount_path/root
 sudo cp $dir/parse_dmesg.pl $mount_path/root
+sudo cp $dir/Plan.pm $mount_path/root
+sudo cp $dir/current_plan.csv $mount_path/root
+sudo cp $dir/create_load.sh $mount_path/root
 
 sudo umount /mnt/qemu

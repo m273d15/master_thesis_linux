@@ -44,6 +44,10 @@
 # define SCHED_WARN_ON(x)	({ (void)(x), 0; })
 #endif
 
+#define PB_DISABLED_MODE 0
+#define PB_EXEC_MODE 1
+#define PB_IDLE_MODE 2
+
 struct rq;
 struct cpuidle_state;
 
@@ -509,8 +513,8 @@ static inline int rt_bandwidth_enabled(void)
 #endif
 
 struct plan_entry {
-	long exec_t;
-	long idle_t;
+	u64 exec_t;
+	u64 idle_t;
 };
 
 struct pb_rq {
@@ -518,8 +522,10 @@ struct pb_rq {
 	unsigned int current_entry;
 	struct task_struct *loop_task;
 	// should be idle_t + current time
-	long idle_until;
-	long exec_until;
+	u64 idle_until;
+	u64 exec_until;
+	int mode;
+	int debug;
 };
 
 /* Real-Time classes' related field in a runqueue: */
@@ -826,6 +832,35 @@ static inline int cpu_of(struct rq *rq)
 #else
 	return 0;
 #endif
+}
+
+static inline int determine_next_mode_pd(u64 time, struct rq *rq)
+{
+	int mode = PB_DISABLED_MODE;
+
+	if (rq->pb.current_entry < PB_PLAN_LENGTH)
+	{
+		// initial switch
+		if (rq->pb.mode == PB_DISABLED_MODE && rq->pb.loop_task != NULL)
+		{
+			return PB_EXEC_MODE;
+		}
+		else
+		{
+			if (rq->pb.mode == PB_EXEC_MODE)
+			{
+				mode = (rq->pb.exec_until < time) ? PB_IDLE_MODE : PB_EXEC_MODE;
+			}
+			else if (rq->pb.mode == PB_IDLE_MODE)
+			{
+				mode = (rq->pb.idle_until < time) ? PB_EXEC_MODE : PB_IDLE_MODE;
+				if (rq->pb.idle_until > 0 && mode == PB_IDLE_MODE)
+					printk(KERN_DEBUG "IDLE time %llu, until: %llu, diff: %llu", time, rq->pb.idle_until, time - rq->pb.idle_until);
+			}
+		}
+	}
+
+	return mode;
 }
 
 

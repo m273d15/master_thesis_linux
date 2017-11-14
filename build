@@ -2,4 +2,4 @@ worker=6
 mdir=/home/kelvin/git/master_thesis_linux/
 
 cd $mdir
-make -j"$worker" bzImage
+sudo make -j"$worker" bzImage

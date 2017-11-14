@@ -26,6 +26,18 @@ static void check_preempt_curr_idle(struct rq *rq, struct task_struct *p, int fl
 static struct task_struct *
 pick_next_task_idle(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 {
+	int current_mode, next_mode;
+	u64 now = rq->clock;
+
+	current_mode = rq->pb.mode;
+	next_mode = determine_next_mode_pd(now, rq);
+
+	if (current_mode != next_mode)
+	{
+		printk(KERN_DEBUG "RESCHED FROM IDLE");
+		return RETRY_TASK;
+	}
+
 	put_prev_task(rq, prev);
 	update_idle_core(rq);
 	schedstat_inc(rq->sched_goidle);
@@ -52,6 +64,17 @@ static void put_prev_task_idle(struct rq *rq, struct task_struct *prev)
 
 static void task_tick_idle(struct rq *rq, struct task_struct *curr, int queued)
 {
+	int current_mode, next_mode;
+	u64 now = rq->clock;
+
+	current_mode = rq->pb.mode;
+	next_mode = determine_next_mode_pd(now, rq);
+
+	if (current_mode != next_mode)
+	{
+		printk(KERN_DEBUG "LIKE TO RESCHED FROM IDLE");
+		resched_curr(rq);
+	}
 }
 
 static void set_curr_task_idle(struct rq *rq)

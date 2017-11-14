@@ -3,27 +3,34 @@
 #include "sched.h"
 #include <linux/kthread.h>
 
+void init_plan(struct pb_rq *pb_rq)
+{
+	// insert the result of plan_to_c.pl below:
+    pb_rq->plan[0].exec_t = 3000000000;
+    pb_rq->plan[0].idle_t = 3000000000;
+    pb_rq->plan[1].exec_t = 3000000000;
+    pb_rq->plan[1].idle_t = 3000000000;
+    pb_rq->plan[2].exec_t = 3000000000;
+    pb_rq->plan[2].idle_t = 3000000000;
+    pb_rq->plan[3].exec_t = 3000000000;
+    pb_rq->plan[3].idle_t = 0;
+
+}
+
 // called by core.c sched_init
 void init_pb_rq(struct pb_rq *pb_rq)
 {
 	pb_rq->idle_until = 0;
+	pb_rq->exec_until = 0;
+	pb_rq->mode = PB_DISABLED_MODE;
 	pb_rq->current_entry = 0;
-
-	pb_rq->plan[0].exec_t = 3000000;
-	pb_rq->plan[0].idle_t = 500000;
-
-	pb_rq->plan[1].exec_t = 10000000;
-	pb_rq->plan[1].idle_t = 100000;
-
-	pb_rq->plan[2].exec_t = 500000;
-	pb_rq->plan[2].idle_t = 10000;
-
-	pb_rq->plan[3].exec_t = 17000000;
-	// last entry does not need any idle ... obvious
-	pb_rq->plan[3].idle_t = 0;
 	pb_rq->loop_task = NULL;
+	pb_rq->debug = 0;
 
+	init_plan(pb_rq);
 }
+
+
 
 // task enters the runnable state
 static void
@@ -49,74 +56,72 @@ static void check_preempt_curr_pb(struct rq *rq, struct task_struct *p, int flag
 	// NOP
 }
 
-static long timeval_to_usec(struct timeval time)
-{
-	return time.tv_sec * 1000000 + time.tv_usec;
-}
-
 static struct task_struct *
 pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 {
 	struct task_struct *picked = NULL;
-	struct timeval now;
+	u64 now;
+	int current_mode, next_mode;
 
-	if (rq->pb.loop_task == NULL)
+	now = rq->clock;
+
+	current_mode = rq->pb.mode;
+	next_mode = determine_next_mode_pd(now, rq);
+
+	// Continue with action of mode
+	if (current_mode == next_mode)
 	{
-		printk(KERN_DEBUG ">> No loop task available\n");
-		printk(KERN_DEBUG "> Exits\n");
-		// NO LOOP TASK life makes no sense so I do nothing
-		return NULL;
-	}
-
-	do_gettimeofday(&now);
-
-
-	if (rq->pb.current_entry < PB_PLAN_LENGTH)
-	{
-		// only the first time if nothing is set
-		if (rq->pb.exec_until == 0 &&
-			rq->pb.idle_until == 0)
-		{
-			printk(KERN_DEBUG "EXEC,START,%u,%ld\n", rq->pb.current_entry, timeval_to_usec(now));
-			// set first exec time
-			rq->pb.exec_until = rq->pb.plan[rq->pb.current_entry].exec_t + timeval_to_usec(now);
+		// action of EXEC is execute loop task
+		if (current_mode == PB_EXEC_MODE)
 			picked = rq->pb.loop_task;
-		}
-		else
-		{
-			// if EXEC_MODE is set
-			if (rq->pb.exec_until > 0)
-			{
-				// if exec_until is not elapsed, continue in EXEC_MODE
-				if (rq->pb.exec_until > timeval_to_usec(now))
-				{
-					picked = rq->pb.loop_task;
-				}
-				// if exec_until is elapsed set IDLE_MODE
-				else
-				{
-					printk(KERN_DEBUG "EXEC,STOP,%u,%ld\n", rq->pb.current_entry, timeval_to_usec(now));
-					printk(KERN_DEBUG "IDLE,START,%u,%ld\n", rq->pb.current_entry, timeval_to_usec(now));
-					rq->pb.exec_until = 0;
-					rq->pb.idle_until = rq->pb.plan[rq->pb.current_entry].idle_t + timeval_to_usec(now);
-					rq->pb.current_entry++;
-				}
-			}
-
-			// if idle_until is set and elapsed set to EXEC_MODE
-			if (rq->pb.idle_until > 0)
-			{
-				if(rq->pb.idle_until < timeval_to_usec(now))
-				{
-					printk(KERN_DEBUG "IDLE,STOP,%u,%ld\n", rq->pb.current_entry, timeval_to_usec(now));
-					printk(KERN_DEBUG "EXEC,START,%u,%ld\n", rq->pb.current_entry, timeval_to_usec(now));
-					rq->pb.idle_until = 0;
-					rq->pb.exec_until = rq->pb.plan[rq->pb.current_entry].exec_t + timeval_to_usec(now);
-				}
-			}
-		}
-
+		// in case of IDLE/DISABLED return NULL
 	}
+	// Switch of states
+	else
+	{
+		// DISABLE --> EXEC or IDLE --> EXEC
+		if ((current_mode == PB_DISABLED_MODE || current_mode == PB_IDLE_MODE) &&
+			next_mode == PB_EXEC_MODE)
+		{
+			rq->pb.mode = next_mode;
+			rq->pb.idle_until = 0;
+			rq->pb.exec_until = rq->pb.plan[rq->pb.current_entry].exec_t + now;
+			picked = rq->pb.loop_task;
+
+			if (current_mode == PB_IDLE_MODE)
+				printk(KERN_WARNING "IDLE,STOP,%u,%llu", rq->pb.current_entry, now);
+			printk(KERN_WARNING "EXEC,START,%u,%llu", rq->pb.current_entry, now);
+		}
+		// EXEC --> IDLE
+		else if (current_mode == PB_EXEC_MODE && next_mode == PB_IDLE_MODE)
+		{
+			rq->pb.mode = next_mode;
+			rq->pb.idle_until = rq->pb.plan[rq->pb.current_entry].idle_t + now;
+			rq->pb.exec_until = 0;
+
+			printk(KERN_WARNING "EXEC,STOP,%u,%llu", rq->pb.current_entry, now);
+			rq->pb.current_entry++;
+
+			printk(KERN_WARNING "INDEX: %u", rq->pb.current_entry);
+			if (rq->pb.current_entry < PB_PLAN_LENGTH)
+			{
+				printk(KERN_WARNING "IDLE,START,%u,%llu", rq->pb.current_entry, now);
+			}
+			else
+			{
+				rq->pb.mode = PB_DISABLED_MODE;
+			}
+		}
+		// EXEC --> DISABLE
+		else if (current_mode == PB_EXEC_MODE && next_mode == PB_DISABLED_MODE)
+		{
+			printk(KERN_WARNING "EXEC,STOP,%u,%llu", rq->pb.current_entry, now);
+			printk(KERN_WARNING "END 2");
+		}
+
+		put_prev_task(rq, prev);
+	}
+
 
 	return picked;
 }
@@ -131,9 +136,25 @@ static void set_curr_task_pb(struct rq *rq)
 
 }
 
+
 static void task_tick_pb(struct rq *rq, struct task_struct *p, int queued)
 {
+	long long now;
+	int current_mode, next_mode;
 
+	now = sched_clock();
+
+	current_mode = rq->pb.mode;
+	next_mode = determine_next_mode_pd(now, rq);
+
+
+	if (current_mode == PB_EXEC_MODE && next_mode == PB_IDLE_MODE)
+	{
+		resched_curr(rq);
+	}
+
+	if (current_mode != PB_EXEC_MODE)
+		printk(KERN_DEBUG "Tick without EXEC");
 }
 
 static unsigned int get_rr_interval_pb(struct rq *rq, struct task_struct *task)

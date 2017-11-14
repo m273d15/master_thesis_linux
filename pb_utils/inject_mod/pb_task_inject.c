@@ -15,7 +15,7 @@ static int loop_thread_func(void *data)
                 int a = 0;
                 set_current_state(TASK_INTERRUPTIBLE);
                 for (;a < 200000; a++){}
-                //printk(KERN_DEBUG "THREAD: looping\n");
+//                printk(KERN_WARNING "THREAD: looping\n");
                 schedule();
                 c++;
         }
@@ -27,13 +27,14 @@ static int __init hello_init(void)
     struct task_struct *loop_task;
     struct rq *rq;
 
-//    printk(KERN_DEBUG "Creating a new kthread!\n");
     loop_task = kthread_create(loop_thread_func, NULL, "PB loop thread");
-//    printk(KERN_DEBUG "policy: %u\n", loop_task->policy);
-//    printk(KERN_DEBUG "pid: %u\n", loop_task->pid);
     loop_task->sched_class = &pb_sched_class;
 
+    loop_task->policy = 7;
+    loop_task->state = 0;
+
     rq = this_rq();
+
     rq->pb.loop_task = loop_task;
 
     return 0;
