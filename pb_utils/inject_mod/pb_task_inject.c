@@ -15,7 +15,6 @@ static int loop_thread_func(void *data)
                 int a = 0;
                 set_current_state(TASK_INTERRUPTIBLE);
                 for (;a < 200000; a++){}
-//                printk(KERN_WARNING "THREAD: looping\n");
                 schedule();
                 c++;
         }
