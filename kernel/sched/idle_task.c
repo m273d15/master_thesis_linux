@@ -34,7 +34,6 @@ pick_next_task_idle(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 
 	if (current_mode != next_mode)
 	{
-		printk(KERN_DEBUG "RESCHED FROM IDLE");
 		return RETRY_TASK;
 	}
 
@@ -72,7 +71,6 @@ static void task_tick_idle(struct rq *rq, struct task_struct *curr, int queued)
 
 	if (current_mode != next_mode)
 	{
-		printk(KERN_DEBUG "LIKE TO RESCHED FROM IDLE");
 		resched_curr(rq);
 	}
 }

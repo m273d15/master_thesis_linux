@@ -598,9 +598,6 @@ struct sched_entity *__pick_first_entity(struct cfs_rq *cfs_rq)
 {
 	struct rb_node *left = cfs_rq->rb_leftmost;
 
-	if (rq_of(cfs_rq)->pb.debug == 1)
-				printk(KERN_WARNING "D1 : %d", left == NULL);
-
 	if (!left)
 		return NULL;
 
@@ -3907,9 +3904,6 @@ pick_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 	struct sched_entity *left = __pick_first_entity(cfs_rq);
 	struct sched_entity *se;
 
-	if (rq_of(cfs_rq)->pb.debug == 1)
-				printk(KERN_WARNING "C1 : %d", left == NULL);
-
 	/*
 	 * If curr is set we have to see if its left of the leftmost entity
 	 * still in the tree, provided there was anything in the tree at all.
@@ -3917,13 +3911,9 @@ pick_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 	if (!left || (curr && entity_before(curr, left)))
 		left = curr;
 
-	if (rq_of(cfs_rq)->pb.debug == 1)
-					printk(KERN_WARNING "C2 : %d", left == NULL);
 
 	se = left; /* ideally we run the leftmost entity */
 
-	if (rq_of(cfs_rq)->pb.debug == 1)
-					printk(KERN_WARNING "C3 : %d", se == NULL);
 	/*
 	 * Avoid running the skip buddy, if running something else can
 	 * be done without getting too unfair.
@@ -3933,45 +3923,31 @@ pick_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 
 		if (se == curr) {
 			second = __pick_first_entity(cfs_rq);
-			if (rq_of(cfs_rq)->pb.debug == 1)
-							printk(KERN_WARNING "C4 : %d", second == NULL);
 		} else {
 			second = __pick_next_entity(se);
-			if (rq_of(cfs_rq)->pb.debug == 1)
-										printk(KERN_WARNING "C5 : %d", second == NULL);
+
 			if (!second || (curr && entity_before(curr, second)))
 				second = curr;
-			if (rq_of(cfs_rq)->pb.debug == 1)
-										printk(KERN_WARNING "C6 : %d", second == NULL);
 		}
-		if (rq_of(cfs_rq)->pb.debug == 1)
-									printk(KERN_WARNING "C7 : %d", second == NULL);
 
 		if (second && wakeup_preempt_entity(second, left) < 1)
 			se = second;
 	}
-	if (rq_of(cfs_rq)->pb.debug == 1)
-								printk(KERN_WARNING "C8 : %d", se == NULL);
+
 	/*
 	 * Prefer last buddy, try to return the CPU to a preempted task.
 	 */
 	if (cfs_rq->last && wakeup_preempt_entity(cfs_rq->last, left) < 1)
 		se = cfs_rq->last;
 
-	if (rq_of(cfs_rq)->pb.debug == 1)
-								printk(KERN_WARNING "C9 : %d", se == NULL);
 	/*
 	 * Someone really wants this to run. If it's not unfair, run it.
 	 */
 	if (cfs_rq->next && wakeup_preempt_entity(cfs_rq->next, left) < 1)
 		se = cfs_rq->next;
 
-	if (rq_of(cfs_rq)->pb.debug == 1)
-								printk(KERN_WARNING "C10 : %d", se == NULL);
 
 	clear_buddies(cfs_rq, se);
-	if (rq_of(cfs_rq)->pb.debug == 1)
-								printk(KERN_WARNING "C11 : %d", se == NULL);
 
 	return se;
 }
@@ -4008,36 +3984,22 @@ entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
 	/*
 	 * Update run-time statistics of the 'current'.
 	 */
-	if (rq_of(cfs_rq)->pb.debug == 1)
-			printk(KERN_WARNING "B1");
 	update_curr(cfs_rq);
-	if (rq_of(cfs_rq)->pb.debug == 1)
-			printk(KERN_WARNING "B2");
 	/*
 	 * Ensure that runnable average is periodically updated.
 	 */
 	update_load_avg(curr, UPDATE_TG);
-	if (rq_of(cfs_rq)->pb.debug == 1)
-				printk(KERN_WARNING "B3");
 	update_cfs_shares(curr);
 
-	if (rq_of(cfs_rq)->pb.debug == 1)
-				printk(KERN_WARNING "B4");
 #ifdef CONFIG_SCHED_HRTICK
 	/*
 	 * queued ticks are scheduled to match the slice, so don't bother
 	 * validating it and just reschedule.
 	 */
-	if (rq_of(cfs_rq)->pb.debug == 1)
-				printk(KERN_WARNING "B5");
 	if (queued) {
-		if (rq_of(cfs_rq)->pb.debug == 1)
-					printk(KERN_WARNING "B6");
 		resched_curr(rq_of(cfs_rq));
 		return;
 	}
-	if (rq_of(cfs_rq)->pb.debug == 1)
-				printk(KERN_WARNING "B7");
 	/*
 	 * don't let the period tick interfere with the hrtick preemption
 	 */
@@ -6235,28 +6197,18 @@ pick_next_task_fair(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 
 	if ((current_mode == PB_DISABLED_MODE || current_mode == PB_IDLE_MODE) && next_mode == PB_EXEC_MODE)
 	{
-		printk(KERN_DEBUG "RESCHED FROM FAIR");
 		return RETRY_TASK;
 	}
 
-	// DISABLE -> EXEC
-	// IDLE -> EXEC
 
-//
-	if (rq->pb.debug == 1)
-		printk(KERN_WARNING "Y1");
 again:
 #ifdef CONFIG_FAIR_GROUP_SCHED
 
 	if (!cfs_rq->nr_running)
 		goto idle;
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "Y2");
 
 	if (prev->sched_class != &fair_sched_class)
 		goto simple;
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "Y3");
 
 	/*
 	 * Because of the set_next_buddy() in dequeue_task_fair() it is rather
@@ -6268,8 +6220,6 @@ again:
 
 	do {
 		struct sched_entity *curr = cfs_rq->curr;
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y4");
 
 		/*
 		 * Since we got here without doing put_prev_entity() we also
@@ -6278,44 +6228,27 @@ again:
 		 * forget we've ever seen it.
 		 */
 		if (curr) {
-			if (rq->pb.debug == 1)
-					printk(KERN_WARNING "Y5");
 			if (curr->on_rq)
 				update_curr(cfs_rq);
 			else
 				curr = NULL;
-			if (rq->pb.debug == 1)
-					printk(KERN_WARNING "Y6");
 			/*
 			 * This call to check_cfs_rq_runtime() will do the
 			 * throttle and dequeue its entity in the parent(s).
 			 * Therefore the 'simple' nr_running test will indeed
 			 * be correct.
 			 */
-			if (rq->pb.debug == 1)
-					printk(KERN_WARNING "Y7");
 			if (unlikely(check_cfs_rq_runtime(cfs_rq)))
 				goto simple;
 
 		}
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y8");
 		se = pick_next_entity(cfs_rq, curr);
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y9");
 
 		cfs_rq = group_cfs_rq(se);
 
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y10");
-
 	} while (cfs_rq);
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "Y11");
 
 	p = task_of(se);
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "Y12");
 	/*
 	 * Since we haven't yet done put_prev_entity and if the selected task
 	 * is a different task than we started out with, try and touch the
@@ -6323,97 +6256,49 @@ again:
 	 */
 	if (prev != p) {
 		struct sched_entity *pse = &prev->se;
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y13");
 
 		while (!(cfs_rq = is_same_group(se, pse))) {
 			int se_depth = se->depth;
 			int pse_depth = pse->depth;
-			if (rq->pb.debug == 1)
-					printk(KERN_WARNING "Y14");
 
 			if (se_depth <= pse_depth) {
-				if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y15");
 				put_prev_entity(cfs_rq_of(pse), pse);
-				if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y16");
 				pse = parent_entity(pse);
 			}
-			if (rq->pb.debug == 1)
-					printk(KERN_WARNING "Y17");
 
 			if (se_depth >= pse_depth) {
-				if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y18");
 				set_next_entity(cfs_rq_of(se), se);
-				if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y19");
 				se = parent_entity(se);
 
 			}
 		}
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y20");
 		put_prev_entity(cfs_rq, pse);
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y21");
 		set_next_entity(cfs_rq, se);
 
 	}
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "Y22");
 	if (hrtick_enabled(rq))
 		hrtick_start_fair(rq, p);
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "Y23");
 	return p;
 simple:
-if (rq->pb.debug == 1)
-			printk(KERN_WARNING "Y24");
 	cfs_rq = &rq->cfs;
-	if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y25");
 #endif
 
 	if (!cfs_rq->nr_running)
 		goto idle;
-	if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y26");
 	put_prev_task(rq, prev);
-	if (rq->pb.debug == 1)
-				printk(KERN_WARNING "Y27");
 	do {
-		if (rq->pb.debug == 1)
-					printk(KERN_WARNING "Y28");
 		se = pick_next_entity(cfs_rq, NULL);
-		if (rq->pb.debug == 1)
-					printk(KERN_WARNING "Y29");
 		set_next_entity(cfs_rq, se);
-		if (rq->pb.debug == 1)
-					printk(KERN_WARNING "Y30");
 		cfs_rq = group_cfs_rq(se);
-		if (rq->pb.debug == 1)
-							printk(KERN_WARNING "Y31");
 	} while (cfs_rq);
-	if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y32");
 	p = task_of(se);
-	if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y33");
 
 	if (hrtick_enabled(rq))
 		hrtick_start_fair(rq, p);
-	if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y34");
 	return p;
-	if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y35");
 idle:
 
 	new_tasks = idle_balance(rq, rf);
-	if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y36");
 	/*
 	 * Because idle_balance() releases (and re-acquires) rq->lock, it is
 	 * possible for any higher priority task to appear. In that case we
@@ -6421,12 +6306,8 @@ idle:
 	 */
 	if (new_tasks < 0)
 		return RETRY_TASK;
-	if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y37");
 	if (new_tasks > 0)
 		goto again;
-	if (rq->pb.debug == 1)
-						printk(KERN_WARNING "Y38");
 	return NULL;
 }
 
@@ -9084,43 +8965,23 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 	struct sched_entity *se = &curr->se;
 	int current_mode, next_mode;
 
-	if (rq->pb.debug == 1)
-		printk(KERN_WARNING "A1");
-
 	for_each_sched_entity(se) {
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "A2");
 		cfs_rq = cfs_rq_of(se);
-		if (rq->pb.debug == 1)
-				printk(KERN_WARNING "A3");
 		entity_tick(cfs_rq, se, queued);
 	}
 
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "A4");
 
 	if (static_branch_unlikely(&sched_numa_balancing))
 		task_tick_numa(rq, curr);
 
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "A5");
 	now = rq->clock;
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "A6");
 	current_mode = rq->pb.mode;
 	next_mode = determine_next_mode_pd(now, rq);
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "A7");
+
 	if (current_mode != next_mode)
 	{
-		printk(KERN_DEBUG "LIKE TO RESCHED FROM FAIR");
 		resched_curr(rq);
 	}
-	if (rq->pb.debug == 1)
-			printk(KERN_WARNING "A10");
-
-	if (current_mode == PB_EXEC_MODE)
-		printk(KERN_DEBUG "Tick without IDLE/DISA");
 }
 
 /*

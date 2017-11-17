@@ -1,9 +1,9 @@
 #!/bin/bash
-IMG=qemu-image.img
+IMG=qemu-image-big.img
 DIR=mount-point.dir
 DEBIAN_VERSION=jessie
 
-qemu-img create $IMG 1g
+qemu-img create $IMG 2g
 
 mkfs.ext2 $IMG
 mkdir $DIR

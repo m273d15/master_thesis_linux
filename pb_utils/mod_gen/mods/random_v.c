@@ -21,7 +21,18 @@ static int loop_thread_func(void *data)
         return 0;
 }
 
-static int __init hello_init(void)
+static void init_rq(struct pb_rq *pb_rq)
+{
+    set_pb_plan_size(pb_rq, 5);
+    set_pb_plan_entry(pb_rq, 0, 5000000000, 2000000000);
+    set_pb_plan_entry(pb_rq, 1, 14000000000, 6000000000);
+    set_pb_plan_entry(pb_rq, 2, 14000000000, 6000000000);
+    set_pb_plan_entry(pb_rq, 3, 8000000000, 10000000000);
+    set_pb_plan_entry(pb_rq, 4, 11000000000, 0);
+    
+}
+
+static int __init pb_client_init(void)
 {
     struct task_struct *loop_task;
     struct rq *rq;
@@ -33,16 +44,23 @@ static int __init hello_init(void)
     loop_task->state = 0;
 
     rq = this_rq();
+    init_rq(&rq->pb);
 
     rq->pb.loop_task = loop_task;
 
     return 0;
 }
 
-static void __exit hello_cleanup(void)
+static void __exit pb_client_cleanup(void)
 {
+    struct rq *rq;
+    rq = this_rq();
+
+    // set pb_rq back to initial values
+    init_pb_rq(&rq->pb);
+
     printk(KERN_DEBUG "Cleaning up module.\n");
 }
 
-module_init(hello_init);
-module_exit(hello_cleanup);
+module_init(pb_client_init);
+module_exit(pb_client_cleanup);

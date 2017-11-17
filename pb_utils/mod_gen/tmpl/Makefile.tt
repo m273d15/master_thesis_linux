@@ -1,0 +1,7 @@
+[% FOREACH module_name IN module_names %]obj-m += [% module_name %].o
+[% END %]
+all:
+	make -C [% linux_src_dir %] M=$(PWD) modules
+
+clean:
+	make -C [% linux_src_dir %] M=$(PWD) clean

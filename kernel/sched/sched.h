@@ -48,6 +48,8 @@
 #define PB_EXEC_MODE 1
 #define PB_IDLE_MODE 2
 
+#define PB_MAX_PLAN_LENGTH 100
+
 struct rq;
 struct cpuidle_state;
 
@@ -75,7 +77,7 @@ static inline void cpu_load_update_active(struct rq *this_rq) { }
 #define NS_TO_JIFFIES(TIME)	((unsigned long)(TIME) / (NSEC_PER_SEC / HZ))
 
 
-#define PB_PLAN_LENGTH 4
+
 /*
  * Increase resolution of nice-level calculations for 64-bit architectures.
  * The extra resolution improves shares distribution and load balancing of
@@ -513,19 +515,26 @@ static inline int rt_bandwidth_enabled(void)
 #endif
 
 struct plan_entry {
+	// the amount of time the task should be executed
 	u64 exec_t;
+	// the amount of time the scheduler should idle after execution
 	u64 idle_t;
 };
 
 struct pb_rq {
-	struct plan_entry plan[PB_PLAN_LENGTH];
+	struct plan_entry plan[PB_MAX_PLAN_LENGTH];
+	// size of the plan
+	unsigned int size;
+	// currently executed entry of the plan
 	unsigned int current_entry;
+	// pointer to the dummy task
 	struct task_struct *loop_task;
-	// should be idle_t + current time
+	// absolute times, which are result of current_time + exec_t or current_time + idle_t
 	u64 idle_until;
 	u64 exec_until;
+	// mode of the PB-Scheduler (introduced to improve the readability)
+	// one of PB_DISABLED_MODE, PB_EXEC_MODE, PB_IDLE_MODE
 	int mode;
-	int debug;
 };
 
 /* Real-Time classes' related field in a runqueue: */
@@ -834,11 +843,14 @@ static inline int cpu_of(struct rq *rq)
 #endif
 }
 
+
+// used to determine the next mode of the PB-Scheduler
+// This function is located in sched.h since pb.c and fair.c are using this function
 static inline int determine_next_mode_pd(u64 time, struct rq *rq)
 {
 	int mode = PB_DISABLED_MODE;
 
-	if (rq->pb.current_entry < PB_PLAN_LENGTH)
+	if (rq->pb.current_entry < rq->pb.size)
 	{
 		// initial switch
 		if (rq->pb.mode == PB_DISABLED_MODE && rq->pb.loop_task != NULL)
@@ -854,12 +866,9 @@ static inline int determine_next_mode_pd(u64 time, struct rq *rq)
 			else if (rq->pb.mode == PB_IDLE_MODE)
 			{
 				mode = (rq->pb.idle_until < time) ? PB_EXEC_MODE : PB_IDLE_MODE;
-				if (rq->pb.idle_until > 0 && mode == PB_IDLE_MODE)
-					printk(KERN_DEBUG "IDLE time %llu, until: %llu, diff: %llu", time, rq->pb.idle_until, time - rq->pb.idle_until);
 			}
 		}
 	}
-
 	return mode;
 }
 
@@ -2021,6 +2030,9 @@ extern void init_cfs_rq(struct cfs_rq *cfs_rq);
 extern void init_rt_rq(struct rt_rq *rt_rq);
 extern void init_pb_rq(struct pb_rq *pb_rq);
 extern void init_dl_rq(struct dl_rq *dl_rq);
+
+extern void set_pb_plan_size(struct pb_rq *pb_rq, unsigned int size);
+extern void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_t, u64 idle_t);
 
 extern void cfs_bandwidth_usage_inc(void);
 extern void cfs_bandwidth_usage_dec(void);
