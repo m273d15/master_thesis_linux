@@ -63,7 +63,7 @@ pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 	u64 now;
 	int current_mode, next_mode;
 
-	now = rq->clock;
+	now = sched_clock();
 
 	current_mode = rq->pb.mode;
 	next_mode = determine_next_mode_pd(now, rq);
@@ -147,7 +147,7 @@ static void task_tick_pb(struct rq *rq, struct task_struct *p, int queued)
 	u64 now;
 	int current_mode, next_mode;
 
-	now = rq->clock;;
+	now = sched_clock();
 
 	current_mode = rq->pb.mode;
 	next_mode = determine_next_mode_pd(now, rq);

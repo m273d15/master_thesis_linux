@@ -72,7 +72,7 @@ sub get_results
     system('dmesg > ' . $tmp_log);
 
     chdir('./mod_gen');
-    my $outp = `"./parse_dmesg.pl ../$tmp_log $plan_path"`
+    my $outp = `./parse_dmesg.pl ../$tmp_log $plan_path`;
     chdir('../');
 
     return $outp;
@@ -84,7 +84,7 @@ sub get_plan_path
     my $plan_path;
     if ($module_path =~ /^.*\/(.+)\.ko$/)
     {
-        $plan_path = $plan_dir . '/' . $1 . $plan_f_ext
+        $plan_path = $plan_dir . '/' . $1 . $plan_f_ext;
     }
     return $plan_path;
 }

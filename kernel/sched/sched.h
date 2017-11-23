@@ -48,6 +48,8 @@
 #define PB_EXEC_MODE 1
 #define PB_IDLE_MODE 2
 
+#define IDLE_PRE_SCHED_TIME 2500000
+
 #define PB_MAX_PLAN_LENGTH 100
 
 struct rq;
@@ -865,7 +867,7 @@ static inline int determine_next_mode_pd(u64 time, struct rq *rq)
 			}
 			else if (rq->pb.mode == PB_IDLE_MODE)
 			{
-				mode = (rq->pb.idle_until < time) ? PB_EXEC_MODE : PB_IDLE_MODE;
+				mode = (rq->pb.idle_until < time + IDLE_PRE_SCHED_TIME) ? PB_EXEC_MODE : PB_IDLE_MODE;
 			}
 		}
 	}

@@ -16,6 +16,8 @@ cd $dir
 sudo mkdir -p $mount_path
 sudo mount -o loop $image_path $mount_path
 
+sudo rm -r $mount_path/root/mod_gen
+
 sudo cp -r $dir/mod_gen $mount_path/root
 sudo cp -r $dir/execute_tests.pl $mount_path/root
 sudo cp -r $dir/exclude_tests.txt $mount_path/root

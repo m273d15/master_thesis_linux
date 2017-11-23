@@ -6190,7 +6190,7 @@ pick_next_task_fair(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 	int current_mode, next_mode;
 	int new_tasks;
 
-	now = rq->clock;
+	now = sched_clock();
 
 	current_mode = rq->pb.mode;
 	next_mode = determine_next_mode_pd(now, rq);
@@ -8974,7 +8974,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 	if (static_branch_unlikely(&sched_numa_balancing))
 		task_tick_numa(rq, curr);
 
-	now = rq->clock;
+	now = sched_clock();
 	current_mode = rq->pb.mode;
 	next_mode = determine_next_mode_pd(now, rq);
 

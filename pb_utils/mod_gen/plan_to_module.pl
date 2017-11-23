@@ -47,7 +47,7 @@ sub process_plan
     for (my $i = 0; $i < scalar @plan ; $i += 2) {
         if ($plan[$i]->{time} >= 20000000000)
         {
-            die "ERROR: Watchdog will cause kernel panic!\n";
+            print("ERROR: Watchdog will cause kernel panic!\n");
         }
         push(@formatted_plan, {
             exec_t => $plan[$i]->{time},
