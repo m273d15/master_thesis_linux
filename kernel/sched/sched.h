@@ -518,9 +518,9 @@ static inline int rt_bandwidth_enabled(void)
 
 struct plan_entry {
 	// the amount of time the task should be executed
-	u64 exec_t;
-	// the amount of time the scheduler should idle after execution
-	u64 idle_t;
+	u64 exec_time;
+	// the amount of time other scheduler modules are used after the task is executed
+	u64 free_time;
 };
 
 struct pb_rq {
@@ -531,8 +531,8 @@ struct pb_rq {
 	unsigned int current_entry;
 	// pointer to the dummy task
 	struct task_struct *loop_task;
-	// absolute times, which are result of current_time + exec_t or current_time + idle_t
-	u64 idle_until;
+	// absolute times, which are result of current_time + exec_time or current_time + free_time
+	u64 free_until;
 	u64 exec_until;
 	// mode of the PB-Scheduler (introduced to improve the readability)
 	// one of PB_DISABLED_MODE, PB_EXEC_MODE, PB_IDLE_MODE
@@ -867,7 +867,7 @@ static inline int determine_next_mode_pd(u64 time, struct rq *rq)
 			}
 			else if (rq->pb.mode == PB_IDLE_MODE)
 			{
-				mode = (rq->pb.idle_until < time + IDLE_PRE_SCHED_TIME) ? PB_EXEC_MODE : PB_IDLE_MODE;
+				mode = (rq->pb.free_until < time + IDLE_PRE_SCHED_TIME) ? PB_EXEC_MODE : PB_IDLE_MODE;
 			}
 		}
 	}
@@ -2034,7 +2034,7 @@ extern void init_pb_rq(struct pb_rq *pb_rq);
 extern void init_dl_rq(struct dl_rq *dl_rq);
 
 extern void set_pb_plan_size(struct pb_rq *pb_rq, unsigned int size);
-extern void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_t, u64 idle_t);
+extern void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_time, u64 free_time);
 
 extern void cfs_bandwidth_usage_inc(void);
 extern void cfs_bandwidth_usage_dec(void);

@@ -11,17 +11,17 @@ void set_pb_plan_size(struct pb_rq *pb_rq, unsigned int size)
 }
 EXPORT_SYMBOL(set_pb_plan_size);
 
-void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_t, u64 idle_t)
+void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_time, u64 free_time)
 {
-	pb_rq->plan[i].exec_t = exec_t;
-	pb_rq->plan[i].idle_t = idle_t;
+	pb_rq->plan[i].exec_time = exec_time;
+	pb_rq->plan[i].free_time = free_time;
 }
 EXPORT_SYMBOL(set_pb_plan_entry);
 
 // called by core.c sched_init
 void init_pb_rq(struct pb_rq *pb_rq)
 {
-	pb_rq->idle_until = 0;
+	pb_rq->free_until = 0;
 	pb_rq->exec_until = 0;
 	pb_rq->mode = PB_DISABLED_MODE;
 	pb_rq->current_entry = 0;
@@ -86,8 +86,8 @@ pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 			next_mode == PB_EXEC_MODE)
 		{
 			rq->pb.mode = next_mode;
-			rq->pb.idle_until = 0;
-			rq->pb.exec_until = rq->pb.plan[rq->pb.current_entry].exec_t + now;
+			rq->pb.free_until = 0;
+			rq->pb.exec_until = rq->pb.plan[rq->pb.current_entry].exec_time + now;
 			picked = rq->pb.loop_task;
 
 			if (current_mode == PB_IDLE_MODE)
@@ -98,7 +98,7 @@ pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 		else if (current_mode == PB_EXEC_MODE && next_mode == PB_IDLE_MODE)
 		{
 			rq->pb.mode = next_mode;
-			rq->pb.idle_until = rq->pb.plan[rq->pb.current_entry].idle_t + now;
+			rq->pb.free_until = rq->pb.plan[rq->pb.current_entry].free_time + now;
 			rq->pb.exec_until = 0;
 
 			printk(KERN_DEBUG "EXEC,STOP,%u,%llu\n", rq->pb.current_entry, now);
