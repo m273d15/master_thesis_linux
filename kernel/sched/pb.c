@@ -3,7 +3,35 @@
 #include "sched.h"
 #include <linux/kthread.h>
 
+void set_pb_measure_on(struct pb_rq *pb_rq)
+{
+	pb_rq->measure_k = PB_MEASURE_K_ON;
+	pb_rq->start = sched_clock();
+	pb_rq->ktime = 0;
+	pb_rq->kstart = 0;
+}
 
+EXPORT_SYMBOL(set_pb_measure_on);
+
+void set_pb_measure_off(struct pb_rq *pb_rq)
+{
+	u64 runtime;
+	u64 stop = sched_clock();
+
+	pb_rq->measure_k = PB_MEASURE_K_OFF;
+	if (stop < pb_rq->start)
+	{
+		printk(KERN_DEBUG "Start is greater than stop. This is a bug!\n");
+	}
+	runtime = stop - pb_rq->start;
+	printk("Measured for %lluus detected ktime of %lluus\n", runtime, pb_rq->ktime);
+
+	pb_rq->ktime = 0;
+	pb_rq->kstart = 0;
+	pb_rq->start = 0;
+}
+
+EXPORT_SYMBOL(set_pb_measure_off);
 
 void set_pb_plan_size(struct pb_rq *pb_rq, unsigned int size)
 {
@@ -27,6 +55,11 @@ void init_pb_rq(struct pb_rq *pb_rq)
 	pb_rq->current_entry = 0;
 	pb_rq->loop_task = NULL;
 	pb_rq->size = 0;
+
+	pb_rq->measure_k = PB_MEASURE_K_OFF;
+	pb_rq->kstart = 0;
+	pb_rq->ktime = 0;
+	pb_rq->start = 0;
 }
 EXPORT_SYMBOL(init_pb_rq);
 
@@ -74,15 +107,15 @@ pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 		// continue executing the task in PB_EXEC_MODE
 		if (current_mode == PB_EXEC_MODE)
 			picked = rq->pb.loop_task;
-		// in case of PB_IDLE_MODE/PB_DISABLED_MODE picked == NULL
+		// in case of PB_FREE_MODE/PB_DISABLED_MODE picked == NULL
 	}
 	// Mode change --> behavior changes
 	else
 	{
 		// Matches:
 		// switch from PB_DISABLE_MODE to PB_EXEC_MODE or
-		// switch from PB_IDLE_MODE to PB_EXEC_MODE
-		if ((current_mode == PB_DISABLED_MODE || current_mode == PB_IDLE_MODE) &&
+		// switch from PB_FREE_MODE to PB_EXEC_MODE
+		if ((current_mode == PB_DISABLED_MODE || current_mode == PB_FREE_MODE) &&
 			next_mode == PB_EXEC_MODE)
 		{
 			rq->pb.mode = next_mode;
@@ -90,12 +123,12 @@ pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 			rq->pb.exec_until = rq->pb.plan[rq->pb.current_entry].exec_time + now;
 			picked = rq->pb.loop_task;
 
-			if (current_mode == PB_IDLE_MODE)
+			if (current_mode == PB_FREE_MODE)
 				printk(KERN_DEBUG "IDLE,STOP,%u,%llu\n", rq->pb.current_entry, now);
 			printk(KERN_DEBUG "EXEC,START,%u,%llu\n", rq->pb.current_entry, now);
 		}
-		// Matches the switch from PB_EXEC_MODE to PB_IDLE_MODE
-		else if (current_mode == PB_EXEC_MODE && next_mode == PB_IDLE_MODE)
+		// Matches the switch from PB_EXEC_MODE to PB_FREE_MODE
+		else if (current_mode == PB_EXEC_MODE && next_mode == PB_FREE_MODE)
 		{
 			rq->pb.mode = next_mode;
 			rq->pb.free_until = rq->pb.plan[rq->pb.current_entry].free_time + now;
@@ -109,19 +142,14 @@ pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 
 			// The last idle entry of a plan is ignored, since the scheduler
 			// behaves after the plan execution as in the idle mode.
-			if (rq->pb.current_entry < rq->pb.size)
-			{
-				printk(KERN_DEBUG "IDLE,START,%u,%llu\n", rq->pb.current_entry, now);
-			}
-			else
+			if (rq->pb.current_entry >= rq->pb.size)
 			{
 				rq->pb.mode = PB_DISABLED_MODE;
 			}
-		}
-		// TODO: I think this is dead code! The disable switch is implemented in the case above
-		else if (current_mode == PB_EXEC_MODE && next_mode == PB_DISABLED_MODE)
-		{
-			printk(KERN_DEBUG "EXEC,STOP,%u,%llu\n", rq->pb.current_entry, now);
+			else
+			{
+				printk(KERN_DEBUG "IDLE,START,%u,%llu\n", rq->pb.current_entry, now);
+			}
 		}
 
 		// Necessary to manage the preempted task
@@ -152,7 +180,7 @@ static void task_tick_pb(struct rq *rq, struct task_struct *p, int queued)
 	current_mode = rq->pb.mode;
 	next_mode = determine_next_mode_pd(now, rq);
 
-	if (current_mode == PB_EXEC_MODE && next_mode == PB_IDLE_MODE)
+	if (current_mode == PB_EXEC_MODE && next_mode == PB_FREE_MODE)
 	{
 		resched_curr(rq);
 	}

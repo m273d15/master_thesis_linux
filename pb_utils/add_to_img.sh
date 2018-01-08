@@ -4,6 +4,8 @@ mount_path=/mnt/qemu
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $dir/mod_gen
 
+make all
+
 ./plan_to_module.pl
 
 cd mods

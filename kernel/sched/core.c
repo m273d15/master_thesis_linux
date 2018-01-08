@@ -3218,6 +3218,11 @@ again:
 	BUG();
 }
 
+static int is_kthread(int flags)
+{
+	return flags & PF_KTHREAD && ! (flags & PF_IDLE);
+}
+
 /*
  * __schedule() is the main scheduler function.
  *
@@ -3319,6 +3324,23 @@ static void __sched notrace __schedule(bool preempt)
 	}
 
 	next = pick_next_task(rq, prev, &rf);
+
+	if (prev != next &&
+		rq->pb.measure_k == PB_MEASURE_K_ON &&
+		is_kthread(prev->flags) != is_kthread(next->flags))
+	{
+		if (is_kthread(prev->flags) &&
+			rq->pb.kstart > 0)
+		{
+			rq->pb.ktime += sched_clock() - rq->pb.kstart;
+			rq->pb.kstart = 0;
+		}
+		else if (is_kthread(next->flags))
+		{
+			rq->pb.kstart = sched_clock();
+		}
+	}
+
 	clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
 

@@ -46,9 +46,12 @@
 
 #define PB_DISABLED_MODE 0
 #define PB_EXEC_MODE 1
-#define PB_IDLE_MODE 2
+#define PB_FREE_MODE 2
 
-#define IDLE_PRE_SCHED_TIME 2500000
+#define PB_MEASURE_K_OFF 0
+#define PB_MEASURE_K_ON 1
+
+#define FREE_PRE_SCHED_TIME 2500000
 
 #define PB_MAX_PLAN_LENGTH 100
 
@@ -535,8 +538,13 @@ struct pb_rq {
 	u64 free_until;
 	u64 exec_until;
 	// mode of the PB-Scheduler (introduced to improve the readability)
-	// one of PB_DISABLED_MODE, PB_EXEC_MODE, PB_IDLE_MODE
+	// one of PB_DISABLED_MODE, PB_EXEC_MODE, PB_FREE_MODE
 	int mode;
+
+	int measure_k;
+	u64 kstart;
+	u64 ktime;
+	u64 start;
 };
 
 /* Real-Time classes' related field in a runqueue: */
@@ -863,11 +871,11 @@ static inline int determine_next_mode_pd(u64 time, struct rq *rq)
 		{
 			if (rq->pb.mode == PB_EXEC_MODE)
 			{
-				mode = (rq->pb.exec_until < time) ? PB_IDLE_MODE : PB_EXEC_MODE;
+				mode = (rq->pb.exec_until < time) ? PB_FREE_MODE : PB_EXEC_MODE;
 			}
-			else if (rq->pb.mode == PB_IDLE_MODE)
+			else if (rq->pb.mode == PB_FREE_MODE)
 			{
-				mode = (rq->pb.free_until < time + IDLE_PRE_SCHED_TIME) ? PB_EXEC_MODE : PB_IDLE_MODE;
+				mode = (rq->pb.free_until < time + FREE_PRE_SCHED_TIME) ? PB_EXEC_MODE : PB_FREE_MODE;
 			}
 		}
 	}
@@ -2033,6 +2041,9 @@ extern void init_rt_rq(struct rt_rq *rt_rq);
 extern void init_pb_rq(struct pb_rq *pb_rq);
 extern void init_dl_rq(struct dl_rq *dl_rq);
 
+
+extern void set_pb_measure_off(struct pb_rq *pb_rq);
+extern void set_pb_measure_on(struct pb_rq *pb_rq);
 extern void set_pb_plan_size(struct pb_rq *pb_rq, unsigned int size);
 extern void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_time, u64 free_time);
 
