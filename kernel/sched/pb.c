@@ -3,12 +3,12 @@
 #include "sched.h"
 #include <linux/kthread.h>
 
-void set_pb_measure_on(struct pb_rq *pb_rq)
+void set_pb_measure_on(struct pb_rq *pb)
 {
-	pb_rq->measure_k = PB_MEASURE_K_ON;
-	pb_rq->start = sched_clock();
-	pb_rq->ktime = 0;
-	pb_rq->kstart = 0;
+	pb->measure_k = PB_MEASURE_K_ON;
+	pb->start = sched_clock();
+	pb->ktime = 0;
+	pb->kstart = 0;
 }
 
 EXPORT_SYMBOL(set_pb_measure_on);
@@ -52,8 +52,8 @@ void init_pb_rq(struct pb_rq *pb_rq)
 	pb_rq->free_until = 0;
 	pb_rq->exec_until = 0;
 	pb_rq->mode = PB_DISABLED_MODE;
-	pb_rq->current_entry = 0;
-	pb_rq->loop_task = NULL;
+	pb_rq->c_entry = 0;
+	pb_rq->proxy_task = NULL;
 	pb_rq->size = 0;
 
 	pb_rq->measure_k = PB_MEASURE_K_OFF;
@@ -88,25 +88,26 @@ static void check_preempt_curr_pb(struct rq *rq, struct task_struct *p, int flag
 	// NOP
 }
 
-static struct task_struct *
-pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
+static struct task_struct * pick_next_task_pb(struct rq *rq,
+		struct task_struct *prev, struct rq_flags *rf)
 {
 	// contains task to be executed
 	struct task_struct *picked = NULL;
 	u64 now;
 	int current_mode, next_mode;
+	struct pb_rq *pb = &(rq->pb);
 
 	now = sched_clock();
 
-	current_mode = rq->pb.mode;
-	next_mode = determine_next_mode_pd(now, rq);
+	current_mode = pb->mode;
+	next_mode = determine_next_mode_pb(now, rq);
 
 	// The mode does not change --> no behavior change is needed
 	if (current_mode == next_mode)
 	{
 		// continue executing the task in PB_EXEC_MODE
 		if (current_mode == PB_EXEC_MODE)
-			picked = rq->pb.loop_task;
+			picked = pb->proxy_task;
 		// in case of PB_FREE_MODE/PB_DISABLED_MODE picked == NULL
 	}
 	// Mode change --> behavior changes
@@ -115,40 +116,42 @@ pick_next_task_pb(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 		// Matches:
 		// switch from PB_DISABLE_MODE to PB_EXEC_MODE or
 		// switch from PB_FREE_MODE to PB_EXEC_MODE
-		if ((current_mode == PB_DISABLED_MODE || current_mode == PB_FREE_MODE) &&
-			next_mode == PB_EXEC_MODE)
+		if ((current_mode == PB_DISABLED_MODE ||
+				current_mode == PB_FREE_MODE)
+				&& next_mode == PB_EXEC_MODE)
 		{
-			rq->pb.mode = next_mode;
-			rq->pb.free_until = 0;
-			rq->pb.exec_until = rq->pb.plan[rq->pb.current_entry].exec_time + now;
-			picked = rq->pb.loop_task;
+			pb->mode = next_mode;
+			pb->free_until = 0;
+			pb->exec_until = pb->plan[pb->c_entry].exec_time + now;
+			picked = pb->proxy_task;
 
 			if (current_mode == PB_FREE_MODE)
-				printk(KERN_DEBUG "IDLE,STOP,%u,%llu\n", rq->pb.current_entry, now);
-			printk(KERN_DEBUG "EXEC,START,%u,%llu\n", rq->pb.current_entry, now);
+				printk(KERN_DEBUG "IDLE,STOP,%u,%llu\n", pb->c_entry, now);
+			printk(KERN_DEBUG "EXEC,START,%u,%llu\n", pb->c_entry, now);
 		}
 		// Matches the switch from PB_EXEC_MODE to PB_FREE_MODE
-		else if (current_mode == PB_EXEC_MODE && next_mode == PB_FREE_MODE)
+		else if (current_mode == PB_EXEC_MODE &&
+				next_mode == PB_FREE_MODE)
 		{
-			rq->pb.mode = next_mode;
-			rq->pb.free_until = rq->pb.plan[rq->pb.current_entry].free_time + now;
-			rq->pb.exec_until = 0;
+			pb->mode = next_mode;
+			pb->free_until = pb->plan[pb->c_entry].free_time + now;
+			pb->exec_until = 0;
 
-			printk(KERN_DEBUG "EXEC,STOP,%u,%llu\n", rq->pb.current_entry, now);
+			printk(KERN_DEBUG "EXEC,STOP,%u,%llu\n", pb->c_entry, now);
 
-			rq->pb.current_entry++;
-			if (rq->pb.current_entry == rq->pb.size)
+			pb->c_entry++;
+			if (pb->c_entry == pb->size)
 				printk(KERN_DEBUG "PLAN DONE\n");
 
 			// The last idle entry of a plan is ignored, since the scheduler
 			// behaves after the plan execution as in the idle mode.
-			if (rq->pb.current_entry >= rq->pb.size)
+			if (pb->c_entry >= pb->size)
 			{
-				rq->pb.mode = PB_DISABLED_MODE;
+				pb->mode = PB_DISABLED_MODE;
 			}
 			else
 			{
-				printk(KERN_DEBUG "IDLE,START,%u,%llu\n", rq->pb.current_entry, now);
+				printk(KERN_DEBUG "IDLE,START,%u,%llu\n", pb->c_entry, now);
 			}
 		}
 
@@ -178,7 +181,7 @@ static void task_tick_pb(struct rq *rq, struct task_struct *p, int queued)
 	now = sched_clock();
 
 	current_mode = rq->pb.mode;
-	next_mode = determine_next_mode_pd(now, rq);
+	next_mode = determine_next_mode_pb(now, rq);
 
 	if (current_mode == PB_EXEC_MODE && next_mode == PB_FREE_MODE)
 	{

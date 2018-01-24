@@ -6193,7 +6193,7 @@ pick_next_task_fair(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 	now = sched_clock();
 
 	current_mode = rq->pb.mode;
-	next_mode = determine_next_mode_pd(now, rq);
+	next_mode = determine_next_mode_pb(now, rq);
 
 	if ((current_mode == PB_DISABLED_MODE || current_mode == PB_FREE_MODE) && next_mode == PB_EXEC_MODE)
 	{
@@ -8976,7 +8976,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 
 	now = sched_clock();
 	current_mode = rq->pb.mode;
-	next_mode = determine_next_mode_pd(now, rq);
+	next_mode = determine_next_mode_pb(now, rq);
 
 	if (current_mode != next_mode)
 	{

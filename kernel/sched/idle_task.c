@@ -30,7 +30,7 @@ pick_next_task_idle(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 	u64 now = sched_clock();
 
 	current_mode = rq->pb.mode;
-	next_mode = determine_next_mode_pd(now, rq);
+	next_mode = determine_next_mode_pb(now, rq);
 
 	if (current_mode != next_mode)
 	{
@@ -67,7 +67,7 @@ static void task_tick_idle(struct rq *rq, struct task_struct *curr, int queued)
 	u64 now = sched_clock();
 
 	current_mode = rq->pb.mode;
-	next_mode = determine_next_mode_pd(now, rq);
+	next_mode = determine_next_mode_pb(now, rq);
 
 	if (current_mode != next_mode)
 	{

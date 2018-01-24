@@ -531,9 +531,9 @@ struct pb_rq {
 	// size of the plan
 	unsigned int size;
 	// currently executed entry of the plan
-	unsigned int current_entry;
+	unsigned int c_entry;
 	// pointer to the dummy task
-	struct task_struct *loop_task;
+	struct task_struct *proxy_task;
 	// absolute times, which are result of current_time + exec_time or current_time + free_time
 	u64 free_until;
 	u64 exec_until;
@@ -856,26 +856,33 @@ static inline int cpu_of(struct rq *rq)
 
 // used to determine the next mode of the PB-Scheduler
 // This function is located in sched.h since pb.c and fair.c are using this function
-static inline int determine_next_mode_pd(u64 time, struct rq *rq)
+static inline int determine_next_mode_pb(u64 time,
+		struct rq *rq)
 {
 	int mode = PB_DISABLED_MODE;
+	struct pb_rq *pb = &(rq->pb);
 
-	if (rq->pb.current_entry < rq->pb.size)
+	if (pb->c_entry < pb->size)
 	{
 		// initial switch
-		if (rq->pb.mode == PB_DISABLED_MODE && rq->pb.loop_task != NULL)
+		if (pb->mode == PB_DISABLED_MODE &&
+				pb->proxy_task != NULL)
 		{
 			return PB_EXEC_MODE;
 		}
 		else
 		{
-			if (rq->pb.mode == PB_EXEC_MODE)
+			if (pb->mode == PB_EXEC_MODE)
 			{
-				mode = (rq->pb.exec_until < time) ? PB_FREE_MODE : PB_EXEC_MODE;
+				mode = (pb->exec_until < time)
+						? PB_FREE_MODE
+						: PB_EXEC_MODE;
 			}
-			else if (rq->pb.mode == PB_FREE_MODE)
+			else if (pb->mode == PB_FREE_MODE)
 			{
-				mode = (rq->pb.free_until < time + FREE_PRE_SCHED_TIME) ? PB_EXEC_MODE : PB_FREE_MODE;
+				mode = (pb->free_until < time + FREE_PRE_SCHED_TIME)
+						? PB_EXEC_MODE
+						: PB_FREE_MODE;
 			}
 		}
 	}
