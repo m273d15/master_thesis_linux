@@ -39,17 +39,17 @@ void set_pb_plan_size(struct pb_rq *pb_rq, unsigned int size)
 }
 EXPORT_SYMBOL(set_pb_plan_size);
 
-void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_time, u64 free_time)
+void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_time, u64 uall_time)
 {
 	pb_rq->plan[i].exec_time = exec_time;
-	pb_rq->plan[i].free_time = free_time;
+	pb_rq->plan[i].uall_time = uall_time;
 }
 EXPORT_SYMBOL(set_pb_plan_entry);
 
 // called by core.c sched_init
 void init_pb_rq(struct pb_rq *pb_rq)
 {
-	pb_rq->free_until = 0;
+	pb_rq->uall_until = 0;
 	pb_rq->exec_until = 0;
 	pb_rq->mode = PB_DISABLED_MODE;
 	pb_rq->c_entry = 0;
@@ -108,33 +108,33 @@ static struct task_struct * pick_next_task_pb(struct rq *rq,
 		// continue executing the task in PB_EXEC_MODE
 		if (current_mode == PB_EXEC_MODE)
 			picked = pb->proxy_task;
-		// in case of PB_FREE_MODE/PB_DISABLED_MODE picked == NULL
+		// in case of PB_UALL_MODE/PB_DISABLED_MODE picked == NULL
 	}
 	// Mode change --> behavior changes
 	else
 	{
 		// Matches:
 		// switch from PB_DISABLE_MODE to PB_EXEC_MODE or
-		// switch from PB_FREE_MODE to PB_EXEC_MODE
+		// switch from PB_UALL_MODE to PB_EXEC_MODE
 		if ((current_mode == PB_DISABLED_MODE ||
-				current_mode == PB_FREE_MODE)
+				current_mode == PB_UALL_MODE)
 				&& next_mode == PB_EXEC_MODE)
 		{
 			pb->mode = next_mode;
-			pb->free_until = 0;
+			pb->uall_until = 0;
 			pb->exec_until = pb->plan[pb->c_entry].exec_time + now;
 			picked = pb->proxy_task;
 
-			if (current_mode == PB_FREE_MODE)
+			if (current_mode == PB_UALL_MODE)
 				printk(KERN_DEBUG "IDLE,STOP,%u,%llu\n", pb->c_entry, now);
 			printk(KERN_DEBUG "EXEC,START,%u,%llu\n", pb->c_entry, now);
 		}
-		// Matches the switch from PB_EXEC_MODE to PB_FREE_MODE
+		// Matches the switch from PB_EXEC_MODE to PB_UALL_MODE
 		else if (current_mode == PB_EXEC_MODE &&
-				next_mode == PB_FREE_MODE)
+				next_mode == PB_UALL_MODE)
 		{
 			pb->mode = next_mode;
-			pb->free_until = pb->plan[pb->c_entry].free_time + now;
+			pb->uall_until = pb->plan[pb->c_entry].uall_time + now;
 			pb->exec_until = 0;
 
 			printk(KERN_DEBUG "EXEC,STOP,%u,%llu\n", pb->c_entry, now);
@@ -151,7 +151,7 @@ static struct task_struct * pick_next_task_pb(struct rq *rq,
 			}
 			else
 			{
-				printk(KERN_DEBUG "IDLE,START,%u,%llu\n", pb->c_entry, now);
+				printk(KERN_DEBUG "UALL,START,%u,%llu\n", pb->c_entry, now);
 			}
 		}
 
@@ -183,7 +183,7 @@ static void task_tick_pb(struct rq *rq, struct task_struct *p, int queued)
 	current_mode = rq->pb.mode;
 	next_mode = determine_next_mode_pb(now, rq);
 
-	if (current_mode == PB_EXEC_MODE && next_mode == PB_FREE_MODE)
+	if (current_mode == PB_EXEC_MODE && next_mode == PB_UALL_MODE)
 	{
 		resched_curr(rq);
 	}

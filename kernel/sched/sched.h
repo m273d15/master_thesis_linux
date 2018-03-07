@@ -46,7 +46,7 @@
 
 #define PB_DISABLED_MODE 0
 #define PB_EXEC_MODE 1
-#define PB_FREE_MODE 2
+#define PB_UALL_MODE 2
 
 #define PB_MEASURE_K_OFF 0
 #define PB_MEASURE_K_ON 1
@@ -523,7 +523,7 @@ struct plan_entry {
 	// the amount of time the task should be executed
 	u64 exec_time;
 	// the amount of time other scheduler modules are used after the task is executed
-	u64 free_time;
+	u64 uall_time;
 };
 
 struct pb_rq {
@@ -534,11 +534,11 @@ struct pb_rq {
 	unsigned int c_entry;
 	// pointer to the dummy task
 	struct task_struct *proxy_task;
-	// absolute times, which are result of current_time + exec_time or current_time + free_time
-	u64 free_until;
+	// absolute times, which are result of current_time + exec_time or current_time + uall_time
+	u64 uall_until;
 	u64 exec_until;
 	// mode of the PB-Scheduler (introduced to improve the readability)
-	// one of PB_DISABLED_MODE, PB_EXEC_MODE, PB_FREE_MODE
+	// one of PB_DISABLED_MODE, PB_EXEC_MODE, PB_UALL_MODE
 	int mode;
 
 	int measure_k;
@@ -875,14 +875,14 @@ static inline int determine_next_mode_pb(u64 time,
 			if (pb->mode == PB_EXEC_MODE)
 			{
 				mode = (pb->exec_until < time)
-						? PB_FREE_MODE
+						? PB_UALL_MODE
 						: PB_EXEC_MODE;
 			}
-			else if (pb->mode == PB_FREE_MODE)
+			else if (pb->mode == PB_UALL_MODE)
 			{
-				mode = (pb->free_until < time + FREE_PRE_SCHED_TIME)
+				mode = (pb->uall_until < time)
 						? PB_EXEC_MODE
-						: PB_FREE_MODE;
+						: PB_UALL_MODE;
 			}
 		}
 	}
@@ -2052,7 +2052,7 @@ extern void init_dl_rq(struct dl_rq *dl_rq);
 extern void set_pb_measure_off(struct pb_rq *pb_rq);
 extern void set_pb_measure_on(struct pb_rq *pb_rq);
 extern void set_pb_plan_size(struct pb_rq *pb_rq, unsigned int size);
-extern void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_time, u64 free_time);
+extern void set_pb_plan_entry(struct pb_rq *pb_rq, unsigned int i, u64 exec_time, u64 uall_time);
 
 extern void cfs_bandwidth_usage_inc(void);
 extern void cfs_bandwidth_usage_dec(void);

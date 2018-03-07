@@ -6195,7 +6195,7 @@ pick_next_task_fair(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 	current_mode = rq->pb.mode;
 	next_mode = determine_next_mode_pb(now, rq);
 
-	if ((current_mode == PB_DISABLED_MODE || current_mode == PB_FREE_MODE) && next_mode == PB_EXEC_MODE)
+	if ((current_mode == PB_DISABLED_MODE || current_mode == PB_UALL_MODE) && next_mode == PB_EXEC_MODE)
 	{
 		return RETRY_TASK;
 	}

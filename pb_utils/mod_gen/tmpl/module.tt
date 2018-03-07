@@ -6,7 +6,7 @@
 
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Module that injects a loop task into the PB scheduler");
+MODULE_DESCRIPTION("PB Scheduler - Module that sets a proxy task and scheduling plan");
 
 static int loop_thread_func(void *data)
 {
@@ -30,19 +30,16 @@ static void init_rq(struct pb_rq *pb_rq)
 
 static int __init pb_client_init(void)
 {
-    struct task_struct *loop_task;
+    struct task_struct *proxy_task;
     struct rq *rq;
 
-    loop_task = kthread_create(loop_thread_func, NULL, "PB loop thread");
-    loop_task->sched_class = &pb_sched_class;
-
-    loop_task->policy = 7;
-    loop_task->state = 0;
+    proxy_task = kthread_create(loop_thread_func, NULL, "PB proxy thread");
+    proxy_task->sched_class = &pb_sched_class;
 
     rq = this_rq();
     init_rq(&rq->pb);
 
-    rq->pb.loop_task = loop_task;
+    rq->pb.proxy_task = proxy_task;
 
     return 0;
 }
